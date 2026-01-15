@@ -9,7 +9,7 @@
 ## 🧠 The Problem
 We all struggle with self-discipline. Whether it's scrolling **TikTok**, checking **Instagram**, or unlocking a game when we should be working, the urge for "instant dopamine" is hard to fight.
 
-Many of us use **App Blockers** (like *Cold Turkey*, *Opal*, or *Screen Time*) to lock these distractions away. But there is a fatal flaw:
+Many of us use **App Blockers** (like *Cold Turkey*, * Lock me out*) to lock these distractions away. But there is a fatal flaw:
 
 *   **If you keep the password**, you will eventually cave in and unlock the app during a moment of weakness.
 *   **If you give the password to a friend**, they might not be awake or available when you genuinely need emergency access.
