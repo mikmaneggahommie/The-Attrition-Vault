@@ -2,7 +2,7 @@
 
 ### The "Break Glass in Case of Emergency" for your Digital Life.
 
-[**🔴 LAUNCH THE VAULT**](https://theattritionvault.netlify.app/)
+[**👉 LAUNCH THE VAULT**](https://theattritionvault.netlify.app/)
 
 ---
 
