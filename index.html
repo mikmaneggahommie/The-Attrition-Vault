@@ -1,0 +1,906 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>The Attrition Vault 🔐</title>
+    <script src="https://cdn.jsdelivr.net/npm/@tailwindcss/browser@4"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/lz-string/1.5.0/lz-string.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/canvas-confetti@1.6.0/dist/confetti.browser.min.js"></script>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Nunito:wght@400;600;700;800;900&display=swap');
+        
+        * {
+            font-family: 'Nunito', sans-serif;
+        }
+        
+        .no-select {
+            -webkit-user-select: none;
+            -moz-user-select: none;
+            -ms-user-select: none;
+            user-select: none;
+            pointer-events: none;
+        }
+        
+        @keyframes shake {
+            0%, 100% { transform: translateX(0); }
+            10%, 30%, 50%, 70%, 90% { transform: translateX(-5px); }
+            20%, 40%, 60%, 80% { transform: translateX(5px); }
+        }
+        
+        .shake {
+            animation: shake 0.5s ease-in-out;
+        }
+        
+        @keyframes bounce-in {
+            0% { transform: scale(0.3); opacity: 0; }
+            50% { transform: scale(1.05); }
+            70% { transform: scale(0.9); }
+            100% { transform: scale(1); opacity: 1; }
+        }
+        
+        .bounce-in {
+            animation: bounce-in 0.6s ease-out;
+        }
+        
+        @keyframes pulse-glow {
+            0%, 100% { box-shadow: 0 0 20px rgba(34, 197, 94, 0.4); }
+            50% { box-shadow: 0 0 40px rgba(34, 197, 94, 0.8); }
+        }
+        
+        .pulse-glow {
+            animation: pulse-glow 2s infinite;
+        }
+        
+        .toast {
+            animation: slide-up 0.3s ease-out;
+        }
+        
+        @keyframes slide-up {
+            from { transform: translateY(100px); opacity: 0; }
+            to { transform: translateY(0); opacity: 1; }
+        }
+        
+        .progress-bar {
+            background: linear-gradient(90deg, #22c55e, #10b981, #14b8a6, #06b6d4);
+            background-size: 300% 100%;
+            animation: gradient-shift 3s ease infinite;
+        }
+        
+        @keyframes gradient-shift {
+            0% { background-position: 0% 50%; }
+            50% { background-position: 100% 50%; }
+            100% { background-position: 0% 50%; }
+        }
+        
+        .char-correct { color: #16a34a; }
+        .char-current { background: #fef08a; border-radius: 2px; padding: 0 2px; }
+        .char-error { background: #fecaca; color: #dc2626; border-radius: 2px; padding: 0 2px; }
+        .char-pending { color: #374151; }
+        
+        #source-text {
+            word-wrap: break-word;
+            overflow-wrap: break-word;
+            white-space: pre-wrap;
+            word-break: break-word;
+        }
+        
+        .blur-password {
+            filter: blur(10px);
+            transition: filter 0.5s ease;
+        }
+    </style>
+</head>
+<body class="bg-gradient-to-br from-emerald-50 via-teal-50 to-cyan-50 min-h-screen">
+    <!-- Toast Container -->
+    <div id="toast-container" class="fixed bottom-6 left-1/2 -translate-x-1/2 z-50"></div>
+
+    <!-- Main App Container -->
+    <div id="app" class="min-h-screen p-4 md:p-8">
+        <!-- Loading State -->
+        <div id="loading-screen" class="flex items-center justify-center min-h-screen">
+            <div class="text-center">
+                <div class="text-6xl mb-4 animate-bounce">🔐</div>
+                <p class="text-xl text-gray-600 font-semibold">Loading The Vault...</p>
+            </div>
+        </div>
+
+        <!-- MODE A: Creation Mode -->
+        <div id="creation-mode" class="hidden max-w-lg mx-auto">
+            <div class="text-center mb-8 pt-8">
+                <div class="text-7xl mb-4">🏦</div>
+                <h1 class="text-4xl md:text-5xl font-black text-gray-800 mb-2">The Attrition Vault</h1>
+                <p class="text-lg text-gray-600 font-semibold">Lock away temptation. Earn access through effort.</p>
+            </div>
+
+            <div class="bg-white rounded-3xl shadow-xl p-6 md:p-8 mb-6">
+                <div class="flex items-center gap-3 mb-6">
+                    <span class="text-4xl">🔑</span>
+                    <div>
+                        <h2 class="text-2xl font-bold text-gray-800">Your Secret</h2>
+                        <p class="text-gray-500">Enter what you want to lock away</p>
+                    </div>
+                </div>
+
+                <textarea 
+                    id="secret-input" 
+                    placeholder="Enter your password, code, or secret here..."
+                    class="w-full h-32 p-4 text-lg border-3 border-gray-200 rounded-2xl focus:border-emerald-400 focus:ring-4 focus:ring-emerald-100 outline-none transition-all resize-none font-mono"
+                ></textarea>
+
+                <button 
+                    id="seal-btn"
+                    class="w-full mt-6 py-5 bg-gradient-to-r from-emerald-500 to-teal-500 hover:from-emerald-600 hover:to-teal-600 text-white text-xl font-bold rounded-2xl shadow-lg hover:shadow-xl transform hover:scale-[1.02] transition-all active:scale-[0.98]"
+                >
+                    🔒 Seal the Vault
+                </button>
+            </div>
+
+            <!-- Generated Link Display -->
+            <div id="link-display" class="hidden bg-white rounded-3xl shadow-xl p-6 md:p-8 bounce-in">
+                <div class="flex items-center gap-3 mb-4">
+                    <span class="text-4xl">⚠️</span>
+                    <div>
+                        <h2 class="text-2xl font-bold text-amber-600">Important!</h2>
+                        <p class="text-gray-600">Save this link. It's the ONLY way to retrieve your secret.</p>
+                    </div>
+                </div>
+
+                <div class="bg-amber-50 border-2 border-amber-200 rounded-2xl p-4 mb-4">
+                    <p class="text-sm text-amber-800 font-semibold mb-2">🔗 Your Vault Link:</p>
+                    <div class="bg-white rounded-xl p-3 break-all font-mono text-sm text-gray-700 border border-amber-200" id="generated-link"></div>
+                </div>
+
+                <button 
+                    id="copy-link-btn"
+                    class="w-full py-4 bg-gradient-to-r from-amber-400 to-orange-400 hover:from-amber-500 hover:to-orange-500 text-white text-lg font-bold rounded-2xl shadow-lg transition-all mb-3"
+                >
+                    📋 Copy Link to Clipboard
+                </button>
+
+                <a 
+                    id="test-link-btn"
+                    href="#"
+                    target="_blank"
+                    class="block w-full py-4 bg-gradient-to-r from-blue-400 to-indigo-400 hover:from-blue-500 hover:to-indigo-500 text-white text-lg font-bold rounded-2xl shadow-lg transition-all text-center"
+                >
+                    🔗 Open Link in New Tab (Test It!)
+                </a>
+
+                <p class="text-center text-gray-500 mt-4 text-sm">
+                    💡 Bookmark this link or save it somewhere safe!
+                </p>
+            </div>
+        </div>
+
+        <!-- MODE B: Retrieval Mode -->
+        <div id="retrieval-mode" class="hidden max-w-2xl mx-auto">
+            
+            <!-- Step 1: Warning -->
+            <div id="warning-screen" class="hidden pt-8">
+                <div class="text-center mb-8">
+                    <div class="text-7xl mb-4">🔒</div>
+                    <h1 class="text-4xl md:text-5xl font-black text-gray-800">Vault Locked</h1>
+                </div>
+
+                <div class="bg-white rounded-3xl shadow-xl p-6 md:p-8">
+                    <div class="text-center mb-6">
+                        <span class="text-6xl">⏱️</span>
+                    </div>
+                    
+                    <h2 class="text-2xl font-bold text-gray-800 text-center mb-4">Ready for the Challenge?</h2>
+                    
+                    <div class="bg-orange-50 border-2 border-orange-200 rounded-2xl p-5 mb-6">
+                        <p class="text-orange-800 font-semibold text-center text-lg">
+                            To retrieve your secret, you must complete a <span class="font-black">manual transcription task</span>.
+                        </p>
+                        <p class="text-orange-600 text-center mt-2">
+                            ⏰ Estimated time: <span class="font-bold">10-15 minutes</span>
+                        </p>
+                    </div>
+
+                    <ul class="space-y-3 mb-6">
+                        <li class="flex items-center gap-3 text-gray-700">
+                            <span class="text-2xl">📝</span>
+                            <span>Type 1500+ characters exactly as shown</span>
+                        </li>
+                        <li class="flex items-center gap-3 text-gray-700">
+                            <span class="text-2xl">🚫</span>
+                            <span>No copy-paste allowed</span>
+                        </li>
+                        <li class="flex items-center gap-3 text-gray-700">
+                            <span class="text-2xl">✅</span>
+                            <span>Every character must match</span>
+                        </li>
+                    </ul>
+
+                    <button 
+                        id="start-task-btn"
+                        class="w-full py-5 bg-gradient-to-r from-emerald-500 to-teal-500 hover:from-emerald-600 hover:to-teal-600 text-white text-xl font-bold rounded-2xl shadow-lg hover:shadow-xl transform hover:scale-[1.02] transition-all active:scale-[0.98]"
+                    >
+                        💪 I'm Ready to Start
+                    </button>
+                </div>
+            </div>
+
+            <!-- Step 2: The Task -->
+            <div id="task-screen" class="hidden pt-4">
+                <!-- Progress Section -->
+                <div class="bg-white rounded-3xl shadow-xl p-4 md:p-6 mb-4 sticky top-2 z-10">
+                    <div class="flex items-center justify-between mb-3">
+                        <div class="flex items-center gap-2">
+                            <span class="text-3xl" id="progress-emoji">😤</span>
+                            <span class="text-lg font-bold text-gray-700" id="progress-text">0% Complete</span>
+                        </div>
+                        <div class="text-right">
+                            <span class="text-sm text-gray-500" id="char-count">0 / 1500</span>
+                        </div>
+                    </div>
+                    <div class="h-6 bg-gray-200 rounded-full overflow-hidden">
+                        <div id="progress-bar" class="h-full progress-bar rounded-full transition-all duration-300" style="width: 0%"></div>
+                    </div>
+                </div>
+
+                <!-- Source Text -->
+                <div class="bg-white rounded-3xl shadow-xl p-4 md:p-6 mb-4">
+                    <div class="flex items-center gap-2 mb-3">
+                        <span class="text-2xl">📖</span>
+                        <h3 class="text-lg font-bold text-gray-700">Text to Type:</h3>
+                    </div>
+                    <div 
+                        id="source-text" 
+                        class="no-select bg-gray-50 rounded-2xl p-4 text-lg leading-relaxed border-2 border-gray-200 max-h-64 overflow-y-auto"
+                    ></div>
+                </div>
+
+                <!-- Input Area -->
+                <div class="bg-white rounded-3xl shadow-xl p-4 md:p-6">
+                    <div class="flex items-center gap-2 mb-3">
+                        <span class="text-2xl">⌨️</span>
+                        <h3 class="text-lg font-bold text-gray-700">Your Typing:</h3>
+                    </div>
+                    <textarea 
+                        id="typing-input"
+                        placeholder="Start typing here..."
+                        class="w-full h-40 p-4 text-lg border-3 border-gray-200 rounded-2xl focus:border-emerald-400 focus:ring-4 focus:ring-emerald-100 outline-none transition-all resize-none"
+                    ></textarea>
+                    <p class="text-sm text-gray-500 mt-2 text-center">
+                        💡 Type carefully! Errors will be highlighted above.
+                    </p>
+                </div>
+            </div>
+
+            <!-- Step 3: The Reward -->
+            <div id="reward-screen" class="hidden pt-8">
+                <div class="text-center mb-8">
+                    <div class="text-7xl mb-4">🎉</div>
+                    <h1 class="text-4xl md:text-5xl font-black text-gray-800 mb-2">You Did It!</h1>
+                    <p class="text-lg text-gray-600">The vault is now open.</p>
+                </div>
+
+                <div class="bg-white rounded-3xl shadow-xl p-6 md:p-8 pulse-glow">
+                    <div class="flex items-center justify-center gap-2 mb-4">
+                        <span class="text-3xl">🔓</span>
+                        <h2 class="text-2xl font-bold text-emerald-600">Your Secret</h2>
+                    </div>
+
+                    <div 
+                        id="revealed-password"
+                        class="bg-emerald-50 border-3 border-emerald-300 rounded-2xl p-6 text-center mb-4"
+                    >
+                        <p id="password-display" class="text-2xl md:text-3xl font-mono font-bold text-emerald-700 break-all"></p>
+                    </div>
+
+                    <button 
+                        id="copy-password-btn"
+                        class="w-full py-4 bg-gradient-to-r from-emerald-500 to-teal-500 hover:from-emerald-600 hover:to-teal-600 text-white text-lg font-bold rounded-2xl shadow-lg transition-all mb-4"
+                    >
+                        📋 Copy Password
+                    </button>
+
+                    <div id="timer-display" class="text-center">
+                        <p class="text-gray-600">
+                            <span class="text-2xl">⏳</span> 
+                            Password hides in: <span id="countdown" class="font-bold text-red-500 text-xl">30</span>s
+                        </p>
+                    </div>
+
+                    <div id="hidden-message" class="hidden text-center mt-4">
+                        <p class="text-gray-500">🔒 Password hidden. Refresh the page to start over.</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // ============================================
+        // THE ATTRITION VAULT - Core Application Logic
+        // ============================================
+
+        const App = {
+            state: {
+                secret: null,
+                sourceText: '',
+                typedText: '',
+                taskStarted: false,
+                completed: false,
+                countdownInterval: null
+            },
+
+            // Convert special Unicode characters to ASCII equivalents
+            normalizeUnicode(text) {
+                const charMap = {
+                    // A variants
+                    '\u0101': 'a', '\u00e1': 'a', '\u00e0': 'a', '\u00e2': 'a', '\u00e4': 'a', '\u00e3': 'a', '\u00e5': 'a', '\u0103': 'a', '\u0105': 'a',
+                    '\u0100': 'A', '\u00c1': 'A', '\u00c0': 'A', '\u00c2': 'A', '\u00c4': 'A', '\u00c3': 'A', '\u00c5': 'A', '\u0102': 'A', '\u0104': 'A',
+                    // E variants
+                    '\u0113': 'e', '\u00e9': 'e', '\u00e8': 'e', '\u00ea': 'e', '\u00eb': 'e', '\u011b': 'e', '\u0119': 'e', '\u0117': 'e',
+                    '\u0112': 'E', '\u00c9': 'E', '\u00c8': 'E', '\u00ca': 'E', '\u00cb': 'E', '\u011a': 'E', '\u0118': 'E', '\u0116': 'E',
+                    // I variants
+                    '\u012b': 'i', '\u00ed': 'i', '\u00ec': 'i', '\u00ee': 'i', '\u00ef': 'i', '\u0129': 'i', '\u012f': 'i',
+                    '\u012a': 'I', '\u00cd': 'I', '\u00cc': 'I', '\u00ce': 'I', '\u00cf': 'I', '\u0128': 'I', '\u012e': 'I',
+                    // O variants
+                    '\u014d': 'o', '\u00f3': 'o', '\u00f2': 'o', '\u00f4': 'o', '\u00f6': 'o', '\u00f5': 'o', '\u00f8': 'o', '\u0151': 'o',
+                    '\u014c': 'O', '\u00d3': 'O', '\u00d2': 'O', '\u00d4': 'O', '\u00d6': 'O', '\u00d5': 'O', '\u00d8': 'O', '\u0150': 'O',
+                    // U variants
+                    '\u016b': 'u', '\u00fa': 'u', '\u00f9': 'u', '\u00fb': 'u', '\u00fc': 'u', '\u0169': 'u', '\u016f': 'u', '\u0171': 'u', '\u0173': 'u',
+                    '\u016a': 'U', '\u00da': 'U', '\u00d9': 'U', '\u00db': 'U', '\u00dc': 'U', '\u0168': 'U', '\u016e': 'U', '\u0170': 'U', '\u0172': 'U',
+                    // Other consonants
+                    '\u00f1': 'n', '\u00d1': 'N', '\u0144': 'n', '\u0143': 'N', '\u0148': 'n', '\u0147': 'N',
+                    '\u00e7': 'c', '\u00c7': 'C', '\u0107': 'c', '\u0106': 'C', '\u010d': 'c', '\u010c': 'C',
+                    '\u00df': 'ss',
+                    '\u015b': 's', '\u015a': 'S', '\u0161': 's', '\u0160': 'S', '\u015f': 's', '\u015e': 'S',
+                    '\u017e': 'z', '\u017d': 'Z', '\u017a': 'z', '\u0179': 'Z', '\u017c': 'z', '\u017b': 'Z',
+                    '\u00fd': 'y', '\u00dd': 'Y', '\u00ff': 'y', '\u0178': 'Y',
+                    '\u0159': 'r', '\u0158': 'R',
+                    '\u010f': 'd', '\u010e': 'D', '\u0111': 'd', '\u0110': 'D',
+                    '\u0165': 't', '\u0164': 'T',
+                    '\u013e': 'l', '\u013d': 'L', '\u0142': 'l', '\u0141': 'L',
+                    '\u011f': 'g', '\u011e': 'G',
+                    // Ligatures
+                    '\u0153': 'oe', '\u0152': 'OE',
+                    '\u00e6': 'ae', '\u00c6': 'AE',
+                    '\ufb01': 'fi', '\ufb02': 'fl',
+                    // Special punctuation - curly quotes, dashes, ellipsis
+                    '\u201c': '"', '\u201d': '"', '\u2018': "'", '\u2019': "'",
+                    '\u2013': '-', '\u2014': '-',
+                    '\u2026': '...',
+                    '\u00ab': '"', '\u00bb': '"',
+                    '\u2039': "'", '\u203a': "'",
+                    '\u201e': '"', '\u201a': "'"
+                };
+                
+                let result = '';
+                for (const char of text) {
+                    result += charMap[char] || char;
+                }
+                return result;
+            },
+
+            // Normalize text - remove multiple spaces, trim, clean up
+            normalizeText(text) {
+                // First convert special unicode to ASCII
+                let normalized = this.normalizeUnicode(text);
+                
+                // Remove any remaining non-ASCII characters that can't be typed easily
+                // Keep only printable ASCII (space to tilde: 32-126)
+                normalized = normalized.replace(/[^\x20-\x7E]/g, '');
+                
+                return normalized
+                    .replace(/\s+/g, ' ')           // Replace multiple whitespace with single space
+                    .replace(/\s*-\s*/g, ' - ')     // Normalize dash spacing  
+                    .replace(/\.\s+/g, '. ')        // Single space after periods
+                    .replace(/,\s+/g, ', ')         // Single space after commas
+                    .replace(/:\s+/g, ': ')         // Single space after colons
+                    .replace(/;\s+/g, '; ')         // Single space after semicolons
+                    .replace(/\?\s+/g, '? ')        // Single space after question marks
+                    .replace(/!\s+/g, '! ')         // Single space after exclamation marks
+                    .trim();
+            },
+
+            // Text sources - fetched from APIs
+            async fetchLiteratureText() {
+                const sources = [
+                    this.fetchFromQuotable,
+                    this.fetchFromPoetry,
+                    this.fetchFromLoremIpsum
+                ];
+
+                for (const fetchFn of sources) {
+                    try {
+                        const text = await fetchFn.call(this);
+                        if (text && text.length >= 1500) {
+                            return this.normalizeText(text.substring(0, 2000));
+                        }
+                    } catch (e) {
+                        console.log('Source failed, trying next...');
+                    }
+                }
+
+                // Fallback to backup texts
+                return this.normalizeText(this.getBackupText());
+            },
+
+            async fetchFromQuotable() {
+                let combinedText = '';
+                let attempts = 0;
+                
+                while (combinedText.length < 2000 && attempts < 5) {
+                    const response = await fetch('https://api.quotable.io/quotes/random?limit=50');
+                    const quotes = await response.json();
+                    
+                    for (const quote of quotes) {
+                        const cleanContent = quote.content.trim();
+                        const cleanAuthor = quote.author.trim();
+                        combinedText += cleanContent + ' — ' + cleanAuthor + '. ';
+                        if (combinedText.length >= 2000) break;
+                    }
+                    attempts++;
+                }
+                
+                return combinedText;
+            },
+
+            async fetchFromPoetry() {
+                const response = await fetch('https://poetrydb.org/random/10');
+                const poems = await response.json();
+                
+                let combinedText = '';
+                for (const poem of poems) {
+                    const cleanTitle = poem.title.trim();
+                    const cleanLines = poem.lines.map(l => l.trim()).filter(l => l.length > 0).join(' ');
+                    combinedText += cleanTitle + ': ' + cleanLines + ' ';
+                    if (combinedText.length >= 2000) break;
+                }
+                
+                return combinedText;
+            },
+
+            async fetchFromLoremIpsum() {
+                const response = await fetch('https://baconipsum.com/api/?type=all-meat&paras=5&format=text');
+                const text = await response.text();
+                return text;
+            },
+
+            getBackupText() {
+                const texts = [
+                    "The only way to do great work is to love what you do. If you haven't found it yet, keep looking. Don't settle. As with all matters of the heart, you'll know when you find it. In three words I can sum up everything I've learned about life: it goes on. The future belongs to those who believe in the beauty of their dreams. It is during our darkest moments that we must focus to see the light. The greatest glory in living lies not in never falling, but in rising every time we fall. Life is what happens when you're busy making other plans. The way to get started is to quit talking and begin doing. Your time is limited, so don't waste it living someone else's life. If life were predictable it would cease to be life, and be without flavor. Spread love everywhere you go. Let no one ever come to you without leaving happier. When you reach the end of your rope, tie a knot in it and hang on. Always remember that you are absolutely unique. Just like everyone else. The best and most beautiful things in the world cannot be seen or even touched, they must be felt with the heart. It is better to fail in originality than to succeed in imitation. The only impossible journey is the one you never begin. Success is not final, failure is not fatal: it is the courage to continue that counts. In the end, it's not the years in your life that count. It's the life in your years. You only live once, but if you do it right, once is enough. Be yourself; everyone else is already taken. Two things are infinite: the universe and human stupidity.",
+                    
+                    "Call me Ishmael. Some years ago, never mind how long precisely, having little or no money in my purse, and nothing particular to interest me on shore, I thought I would sail about a little and see the watery part of the world. It is a way I have of driving off the spleen and regulating the circulation. Whenever I find myself growing grim about the mouth; whenever it is a damp, drizzly November in my soul; whenever I find myself involuntarily pausing before coffin warehouses, and bringing up the rear of every funeral I meet; and especially whenever my hypos get such an upper hand of me, that it requires a strong moral principle to prevent me from deliberately stepping into the street, and methodically knocking people's hats off, then, I account it high time to get to sea as soon as I can. This is my substitute for pistol and ball. With a philosophical flourish Cato throws himself upon his sword; I quietly take to the ship. There is nothing surprising in this. If they but knew it, almost all men in their degree, some time or other, cherish very nearly the same feelings towards the ocean with me. There now is your insular city of the Manhattoes, belted round by wharves as Indian isles by coral reefs.",
+                    
+                    "It was the best of times, it was the worst of times, it was the age of wisdom, it was the age of foolishness, it was the epoch of belief, it was the epoch of incredulity, it was the season of Light, it was the season of Darkness, it was the spring of hope, it was the winter of despair, we had everything before us, we had nothing before us, we were all going direct to Heaven, we were all going direct the other way, in short, the period was so far like the present period, that some of its noisiest authorities insisted on its being received, for good or for evil, in the superlative degree of comparison only. There were a king with a large jaw and a queen with a plain face, on the throne of England; there were a king with a large jaw and a queen with a fair face, on the throne of France. In both countries it was clearer than crystal to the lords of the State preserves of loaves and fishes, that things in general were settled for ever. It was the year of Our Lord one thousand seven hundred and seventy-five. Spiritual revelations were conceded to England at that favoured period, as at this."
+                ];
+                
+                return texts[Math.floor(Math.random() * texts.length)];
+            },
+
+            // Encryption/Decryption using LZ-String
+            encodeSecret(secret) {
+                // Add a prefix to help validate later
+                const payload = 'VAULT:' + secret;
+                const compressed = LZString.compressToEncodedURIComponent(payload);
+                return compressed;
+            },
+
+            decodeSecret(encoded) {
+                try {
+                    if (!encoded || encoded.length === 0) {
+                        console.log('Empty hash');
+                        return null;
+                    }
+                    
+                    const decompressed = LZString.decompressFromEncodedURIComponent(encoded);
+                    console.log('Decompressed result:', decompressed);
+                    
+                    if (!decompressed) {
+                        console.log('Decompression returned null/empty');
+                        return null;
+                    }
+                    
+                    // Check for our prefix
+                    if (decompressed.startsWith('VAULT:')) {
+                        return decompressed.substring(6); // Remove 'VAULT:' prefix
+                    }
+                    
+                    // For backwards compatibility, accept any valid decompression
+                    return decompressed;
+                } catch (e) {
+                    console.error('Decode error:', e);
+                    return null;
+                }
+            },
+
+            // Toast notifications
+            showToast(message, type = 'info') {
+                const container = document.getElementById('toast-container');
+                const toast = document.createElement('div');
+                
+                const bgColors = {
+                    'info': 'bg-blue-500',
+                    'success': 'bg-emerald-500',
+                    'error': 'bg-red-500',
+                    'warning': 'bg-amber-500'
+                };
+
+                toast.className = `toast ${bgColors[type]} text-white px-6 py-4 rounded-2xl shadow-xl font-bold text-lg flex items-center gap-2`;
+                toast.innerHTML = `<span class="text-2xl">${type === 'error' ? '🚫' : type === 'success' ? '✅' : type === 'warning' ? '⚠️' : 'ℹ️'}</span> ${message}`;
+                
+                container.appendChild(toast);
+                
+                setTimeout(() => {
+                    toast.style.opacity = '0';
+                    toast.style.transform = 'translateY(20px)';
+                    toast.style.transition = 'all 0.3s ease';
+                    setTimeout(() => toast.remove(), 300);
+                }, 2500);
+            },
+
+            // Render source text with highlighting
+            renderSourceText() {
+                const sourceEl = document.getElementById('source-text');
+                const typed = this.state.typedText;
+                const source = this.state.sourceText;
+                
+                let html = '';
+                
+                for (let i = 0; i < source.length; i++) {
+                    const char = source[i];
+                    // Use a visible dot for spaces to make them clearer, or just the space
+                    const displayChar = char === ' ' ? ' ' : this.escapeHtml(char);
+                    
+                    if (i < typed.length) {
+                        if (typed[i] === char) {
+                            html += `<span class="char-correct">${displayChar}</span>`;
+                        } else {
+                            html += `<span class="char-error">${displayChar}</span>`;
+                        }
+                    } else if (i === typed.length) {
+                        html += `<span class="char-current">${displayChar}</span>`;
+                    } else {
+                        html += `<span class="char-pending">${displayChar}</span>`;
+                    }
+                }
+                
+                sourceEl.innerHTML = html;
+
+                // Auto-scroll to current position
+                const currentChar = sourceEl.querySelector('.char-current');
+                if (currentChar) {
+                    currentChar.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                }
+            },
+
+            escapeHtml(text) {
+                const div = document.createElement('div');
+                div.textContent = text;
+                return div.innerHTML;
+            },
+
+            // Update progress bar
+            updateProgress() {
+                const progress = Math.min(100, (this.state.typedText.length / this.state.sourceText.length) * 100);
+                const progressBar = document.getElementById('progress-bar');
+                const progressText = document.getElementById('progress-text');
+                const charCount = document.getElementById('char-count');
+                const progressEmoji = document.getElementById('progress-emoji');
+
+                progressBar.style.width = `${progress}%`;
+                progressText.textContent = `${Math.round(progress)}% Complete`;
+                charCount.textContent = `${this.state.typedText.length} / ${this.state.sourceText.length}`;
+
+                // Update emoji based on progress
+                if (progress < 10) progressEmoji.textContent = '😤';
+                else if (progress < 25) progressEmoji.textContent = '😓';
+                else if (progress < 50) progressEmoji.textContent = '😊';
+                else if (progress < 75) progressEmoji.textContent = '😃';
+                else if (progress < 90) progressEmoji.textContent = '🤩';
+                else if (progress < 100) progressEmoji.textContent = '🔥';
+                else progressEmoji.textContent = '🏆';
+
+                // Check completion
+                if (this.state.typedText.length >= this.state.sourceText.length && !this.state.completed) {
+                    this.completeTask();
+                }
+            },
+
+            // Handle typing input
+            handleTyping(e) {
+                const input = e.target;
+                const newValue = input.value;
+                const oldValue = this.state.typedText;
+                
+                // Check if user is trying to add characters
+                if (newValue.length > oldValue.length) {
+                    const newChars = newValue.substring(oldValue.length);
+                    let validInput = oldValue;
+                    
+                    for (const char of newChars) {
+                        const expectedChar = this.state.sourceText[validInput.length];
+                        
+                        if (char === expectedChar) {
+                            validInput += char;
+                        } else {
+                            // Wrong character - shake and show error
+                            this.triggerError();
+                            input.value = validInput;
+                            this.state.typedText = validInput;
+                            this.renderSourceText();
+                            this.updateProgress();
+                            return;
+                        }
+                    }
+                    
+                    this.state.typedText = validInput;
+                    input.value = validInput;
+                } else {
+                    // User is backspacing - allow it
+                    this.state.typedText = newValue;
+                }
+                
+                this.renderSourceText();
+                this.updateProgress();
+            },
+
+            triggerError() {
+                const input = document.getElementById('typing-input');
+                const container = document.getElementById('task-screen');
+                
+                input.classList.add('border-red-500', 'ring-red-100');
+                container.classList.add('shake');
+                
+                setTimeout(() => {
+                    input.classList.remove('border-red-500', 'ring-red-100');
+                    container.classList.remove('shake');
+                }, 500);
+            },
+
+            // Block paste
+            handlePaste(e) {
+                e.preventDefault();
+                this.showToast('No Cheating! Type it yourself! 🙅', 'error');
+                this.triggerError();
+            },
+
+            // Complete task
+            completeTask() {
+                this.state.completed = true;
+                
+                // Fire confetti!
+                confetti({
+                    particleCount: 150,
+                    spread: 70,
+                    origin: { y: 0.6 }
+                });
+
+                setTimeout(() => {
+                    confetti({
+                        particleCount: 100,
+                        angle: 60,
+                        spread: 55,
+                        origin: { x: 0 }
+                    });
+                    confetti({
+                        particleCount: 100,
+                        angle: 120,
+                        spread: 55,
+                        origin: { x: 1 }
+                    });
+                }, 250);
+
+                // Show reward screen
+                document.getElementById('task-screen').classList.add('hidden');
+                document.getElementById('reward-screen').classList.remove('hidden');
+                document.getElementById('password-display').textContent = this.state.secret;
+
+                this.showToast('Congratulations! You earned it! 🎉', 'success');
+
+                // Start countdown
+                let countdown = 30;
+                const countdownEl = document.getElementById('countdown');
+                
+                this.state.countdownInterval = setInterval(() => {
+                    countdown--;
+                    countdownEl.textContent = countdown;
+                    
+                    if (countdown <= 10) {
+                        countdownEl.classList.add('animate-pulse');
+                    }
+                    
+                    if (countdown <= 0) {
+                        clearInterval(this.state.countdownInterval);
+                        this.hidePassword();
+                    }
+                }, 1000);
+            },
+
+            hidePassword() {
+                const passwordDisplay = document.getElementById('password-display');
+                const timerDisplay = document.getElementById('timer-display');
+                const hiddenMessage = document.getElementById('hidden-message');
+                const copyBtn = document.getElementById('copy-password-btn');
+                
+                passwordDisplay.classList.add('blur-password');
+                timerDisplay.classList.add('hidden');
+                hiddenMessage.classList.remove('hidden');
+                copyBtn.disabled = true;
+                copyBtn.classList.add('opacity-50', 'cursor-not-allowed');
+            },
+
+            // Copy to clipboard
+            async copyToClipboard(text, successMessage) {
+                try {
+                    await navigator.clipboard.writeText(text);
+                    this.showToast(successMessage, 'success');
+                } catch (e) {
+                    // Fallback for older browsers
+                    const textarea = document.createElement('textarea');
+                    textarea.value = text;
+                    document.body.appendChild(textarea);
+                    textarea.select();
+                    document.execCommand('copy');
+                    document.body.removeChild(textarea);
+                    this.showToast(successMessage, 'success');
+                }
+            },
+
+            // Initialize the app
+            async init() {
+                // Get the full hash including everything after #
+                const fullHash = window.location.hash;
+                const hash = fullHash.substring(1); // Remove the # symbol
+                
+                console.log('Full URL:', window.location.href);
+                console.log('Hash detected:', hash);
+                console.log('Hash length:', hash.length);
+                
+                if (hash && hash.length > 0) {
+                    // MODE B: Retrieval mode
+                    console.log('Attempting to decode...');
+                    const secret = this.decodeSecret(hash);
+                    
+                    console.log('Decoded secret:', secret);
+                    
+                    if (!secret || secret.length === 0) {
+                        console.log('Decode failed - showing error');
+                        this.showToast('Invalid or corrupted vault link! Make sure you copied the entire URL.', 'error');
+                        document.getElementById('loading-screen').classList.add('hidden');
+                        document.getElementById('creation-mode').classList.remove('hidden');
+                        
+                        // Show an error message in the UI
+                        const errorDiv = document.createElement('div');
+                        errorDiv.className = 'bg-red-100 border-2 border-red-300 rounded-2xl p-4 mb-6 text-center';
+                        errorDiv.innerHTML = `
+                            <p class="text-red-700 font-bold">⚠️ Invalid Vault Link</p>
+                            <p class="text-red-600 text-sm mt-2">The link you used appears to be corrupted or incomplete. Make sure you copied the entire URL including everything after the # symbol.</p>
+                        `;
+                        document.getElementById('creation-mode').insertBefore(errorDiv, document.getElementById('creation-mode').firstChild.nextSibling);
+                        return;
+                    }
+                    
+                    this.state.secret = secret;
+                    this.showRetrievalMode();
+                } else {
+                    // MODE A: Creation mode
+                    console.log('No hash - showing creation mode');
+                    this.showCreationMode();
+                }
+            },
+
+            showCreationMode() {
+                document.getElementById('loading-screen').classList.add('hidden');
+                document.getElementById('creation-mode').classList.remove('hidden');
+
+                // Event listeners
+                document.getElementById('seal-btn').addEventListener('click', () => {
+                    const secretInput = document.getElementById('secret-input');
+                    const secret = secretInput.value.trim();
+                    
+                    if (!secret) {
+                        this.showToast('Please enter a secret to lock away!', 'warning');
+                        return;
+                    }
+                    
+                    const encoded = this.encodeSecret(secret);
+                    const link = `${window.location.origin}${window.location.pathname}#${encoded}`;
+                    
+                    console.log('Generated encoded string:', encoded);
+                    console.log('Full link:', link);
+                    
+                    document.getElementById('generated-link').textContent = link;
+                    document.getElementById('test-link-btn').href = link;
+                    document.getElementById('link-display').classList.remove('hidden');
+                    
+                    // Disable the seal button and input
+                    secretInput.disabled = true;
+                    document.getElementById('seal-btn').disabled = true;
+                    document.getElementById('seal-btn').classList.add('opacity-50', 'cursor-not-allowed');
+                    
+                    this.showToast('Vault sealed! Save your link!', 'success');
+                });
+
+                document.getElementById('copy-link-btn').addEventListener('click', () => {
+                    const link = document.getElementById('generated-link').textContent;
+                    this.copyToClipboard(link, 'Link copied to clipboard!');
+                });
+            },
+
+            showRetrievalMode() {
+                document.getElementById('loading-screen').classList.add('hidden');
+                document.getElementById('retrieval-mode').classList.remove('hidden');
+                document.getElementById('warning-screen').classList.remove('hidden');
+
+                // Start button
+                document.getElementById('start-task-btn').addEventListener('click', async () => {
+                    document.getElementById('warning-screen').classList.add('hidden');
+                    document.getElementById('task-screen').classList.remove('hidden');
+                    
+                    // Show loading state
+                    document.getElementById('source-text').innerHTML = '<div class="text-center text-gray-500">📚 Loading passage...</div>';
+                    
+                    // Fetch text
+                    this.state.sourceText = await this.fetchLiteratureText();
+                    this.state.typedText = '';
+                    
+                    this.renderSourceText();
+                    this.updateProgress();
+                    
+                    // Focus input
+                    document.getElementById('typing-input').focus();
+                });
+
+                // Typing input
+                const typingInput = document.getElementById('typing-input');
+                typingInput.addEventListener('input', (e) => this.handleTyping(e));
+                typingInput.addEventListener('paste', (e) => this.handlePaste(e));
+                
+                // Prevent drop
+                typingInput.addEventListener('drop', (e) => {
+                    e.preventDefault();
+                    this.showToast('No Cheating! Type it yourself! 🙅', 'error');
+                });
+
+                // Prevent context menu on input (right-click paste)
+                typingInput.addEventListener('contextmenu', (e) => {
+                    e.preventDefault();
+                });
+
+                // Copy password button
+                document.getElementById('copy-password-btn').addEventListener('click', () => {
+                    if (!this.state.completed) return;
+                    this.copyToClipboard(this.state.secret, 'Password copied!');
+                });
+            }
+        };
+
+        // Prevent keyboard shortcuts for paste
+        document.addEventListener('keydown', (e) => {
+            const typingInput = document.getElementById('typing-input');
+            if (document.activeElement === typingInput) {
+                // Block Ctrl+V, Cmd+V, Ctrl+Shift+V
+                if ((e.ctrlKey || e.metaKey) && (e.key === 'v' || e.key === 'V')) {
+                    e.preventDefault();
+                    App.showToast('No Cheating! Type it yourself! 🙅', 'error');
+                    App.triggerError();
+                }
+            }
+        });
+
+        // Disable right-click on source text
+        document.addEventListener('contextmenu', (e) => {
+            if (e.target.closest('#source-text')) {
+                e.preventDefault();
+            }
+        });
+
+        // Initialize app when DOM is ready
+        document.addEventListener('DOMContentLoaded', () => App.init());
+        
+        // Listen for hash changes (in case user navigates with back/forward)
+        window.addEventListener('hashchange', () => {
+            console.log('Hash changed, reloading...');
+            window.location.reload();
+        });
+    </script>
+</body>
+</html>
