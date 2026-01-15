@@ -40,14 +40,13 @@ It creates just enough **friction** to stop impulsive scrolling, but keeps the p
 1.  **Generate a Random Password:** Use a tool to create a complex password (e.g., `Xy9#mP2!`).
 2.  **Lock Your Distraction:** Use that password to lock your App Blocker (**Cold Turkey**, **Lock Me Out**, etc.).
 3.  **Seal the Vault:** Enter that password into **The Attrition Vault**.
-4.  **Save the Key:** The site generates a long **Recovery URL**. Email this link to yourself with a subject like *"TikTok Unlock Key - Do Not Open"*.
+4.  **Save the Key:** The site generates a long **Recovery URL**. Email this link to yourself  with a subject like *"TikTok Unlock Key"*.
 5.  **Delete:** Delete the password from your clipboard and notes.
-
-Now, you are free. If you want to unlock TikTok, you have to find that email, click the link, and **suffer through 20 minutes of typing.**
+5.  **Open the Recovery URL:** To access the Password in case of Emergency open the Recovery URL you just saved. Now, you are free. If you want to unlock TikTok, click the link, and **suffer through 20 minutes of typing.**
 
 ## 🛠️ Tech Stack
 *   **Vanilla HTML/JS:** Lightweight, fast, and no dependencies.
-*   **TailwindCSS:** For the aesthetic.
+*   **TailwindCSS:** For the design.
 *   **LZ-String:** For robust URL-based compression and encryption.
 *   **GitHub Pages:** Hosted for free, forever.
 
